@@ -1,0 +1,8 @@
+prefix=/home/gsivaych/Public/roboMuse/RoboMuse_V/catkin_ws/install
+
+Name: slipdetction
+Description: Description of slipdetction
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/gsivaych/Public/roboMuse/RoboMuse_V/catkin_ws/install/lib 
+Requires: 

@@ -1,0 +1,2 @@
+slipdetction
+-DCATKIN_DEVEL_PREFIX=/home/gsivaych/Public/roboMuse/RoboMuse_V/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/gsivaych/Public/roboMuse/RoboMuse_V/catkin_ws/install -G Unix Makefiles
