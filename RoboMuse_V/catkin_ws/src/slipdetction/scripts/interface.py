@@ -11,11 +11,11 @@ class slipControler():
 		nodename = rospy.get_name()
 		rospy.loginfo("node %s started." % nodename)
 		# subscribers
-		rospy.Subscriber('imu', Imu, self.cb_imu)
+		rospy.Subscriber('imu_in', Imu, self.cb_imu)
 		rospy.Subscriber('lwheel', Int32, self.cb_lwheel)
 		rospy.Subscriber('rwheel', Int32, self.cb_rwheel)
-		rospy.Subscriber('l_motorcommand', Float32, self.cb_l_motorcommand)
-		rospy.Subscriber('r_motorcommand', Float32, self.cb_r_motorcommand)
+		rospy.Subscriber('l_motorcmd', Float32, self.cb_l_motorcommand)
+		rospy.Subscriber('r_motorcmd', Float32, self.cb_r_motorcommand)
 		# publishers
 		self.pub_lwheel4carto = rospy.Publisher('lwheel4carto', Int32, queue_size = 10)
 		self.pub_rwheel4carto = rospy.Publisher('rwheel4carto', Int32, queue_size = 10)
@@ -32,9 +32,9 @@ class slipControler():
 		self.original_rightEncVal = 0
 		# imu msg vars
 		self.timeHolder = 0.0
-		self.imu_msg = Imu()
 		self.del_IMU_roll = 0.0
 		self.total_IMU_roll = 0.0
+		self.lateralAcc = 0.0
 
 		self.l_motorcommand = 0.0
 		self.r_motorcommand = 0.0
@@ -55,14 +55,17 @@ class slipControler():
 	# callback functions
 	def cb_lwheel(self, msg):
 		self.original_leftEncVal = msg.data
+		sC.calcOriginalTheta()
 	def cb_rwheel(self, msg):
 		self.original_rightEncVal = msg.data
+		sC.calcOriginalTheta()
 	def cb_imu(self, msg):
 		self.timeHolder = time.time();
-		self.imu_msg = msg.data
 		self.total_IMU_yaw = msg.orientation.x
 		self.del_IMU_roll = msg.orientation.z - self.total_IMU_roll
 		self.total_IMU_roll = msg.orientation.z
+		self.lateralAcc = msg.linear_acceleration.y
+		sC.lateralSlip()
 	def cb_l_motorcommand(self, msg):
 		self.l_motorcommand = msg.data
 	def cb_r_motorcommand(self, msg):
@@ -70,6 +73,9 @@ class slipControler():
 	# ops 4 slip detection
 	def calcOriginalTheta(self):
 		self.originalTheta += math.atan((self.original_rightEncVal-self.original_leftEncVal)/0.435)
+		print ''
+		print 'original theta calculated'
+		sC.weightedFilter()
 	def weightedFilter(self):
 		alpha4 = 1
 		abs_del = abs(self.originalTheta-self.total_IMU_yaw)
@@ -78,21 +84,27 @@ class slipControler():
 			filterValue = alphaQ
 		elif abs_del >= 15:
 			filterValue = aplha4
+			print 'slip is being corrected...'
 		else:
 			filterValue = 0
 		self.filteredTheta = (1-filterValue)*self.originalTheta + filterValue*self.total_IMU_yaw
+		print 'outta weightedF'
+		sC.peakDetection()
+	def lateralSlip(self):
+		if abs(self.lateralAcc) >= 0.1:
+			print 'lateral slip detected'
 	def peakDetection(self):
 		del_Time = time.time() - self.timeHolder
+		print 'del time %r' % del_Time
 		self.timeHolder = time.time()
 		der_del_roll = self.del_IMU_roll / del_Time
+		print 'der_del_roll %f',der_del_roll
 		if abs(der_del_roll) > 0.1:
-			print "Slip Detected.."
+			print 'Slip Detected..'
+		print 'outta peakDet'
 if __name__ == '__main__':
 	try:
 		sC = slipControler()
-		sC.calcOriginalTheta()
-		sC.weightedFilter()
-		sC.peakDetection()
 		sC.spin()
 	except rospy.ROSInterruptException:
 		pass
