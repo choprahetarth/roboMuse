@@ -35,6 +35,7 @@ class slipControler():
 		self.del_IMU_roll = 0.0
 		self.total_IMU_roll = 0.0
 		self.lateralAcc = 0.0
+		self.yaw_offset = 0.0
 
 		self.l_motorcommand = 0.0
 		self.r_motorcommand = 0.0
@@ -61,7 +62,7 @@ class slipControler():
 		sC.calcOriginalTheta()
 	def cb_imu(self, msg):
 		self.timeHolder = time.time();
-		self.total_IMU_yaw = msg.orientation.x
+		self.total_IMU_yaw = math.degrees(msg.orientation.x)-self.yaw_offset
 		self.del_IMU_roll = msg.orientation.z - self.total_IMU_roll
 		self.total_IMU_roll = msg.orientation.z
 		self.lateralAcc = msg.linear_acceleration.y
@@ -72,35 +73,39 @@ class slipControler():
 		self.r_motorcommand = msg.data
 	# ops 4 slip detection
 	def calcOriginalTheta(self):
-		self.originalTheta += math.atan((self.original_rightEncVal-self.original_leftEncVal)/0.435)
+		self.originalTheta += math.degrees(math.atan((self.original_rightEncVal-self.original_leftEncVal)/2680.24))
 		print ''
 		print 'original theta calculated'
 		sC.weightedFilter()
 	def weightedFilter(self):
 		alpha4 = 1
+		print 'in WF'
+		print 'original Theta ========================: ',self.originalTheta
+		print 'IMU yaw ===============================: ',self.total_IMU_yaw
 		abs_del = abs(self.originalTheta-self.total_IMU_yaw)
 		alphaQ = abs_del/(abs_del+5)
 		if abs_del > 0.1 and abs_del < 15:
 			filterValue = alphaQ
 		elif abs_del >= 15:
-			filterValue = aplha4
+			filterValue = alpha4
 			print 'slip is being corrected...'
 		else:
 			filterValue = 0
 		self.filteredTheta = (1-filterValue)*self.originalTheta + filterValue*self.total_IMU_yaw
+		print 'filtered Theta ===========================: ',self.filteredTheta
 		print 'outta weightedF'
 		sC.peakDetection()
 	def lateralSlip(self):
-		if abs(self.lateralAcc) >= 0.1:
-			print 'lateral slip detected'
+		if abs(self.lateralAcc) >= 0.8:
+			print 'sudden lateral slip detected'
 	def peakDetection(self):
 		del_Time = time.time() - self.timeHolder
-		print 'del time %r' % del_Time
+		print 'del time ============%r' % del_Time
 		self.timeHolder = time.time()
 		der_del_roll = self.del_IMU_roll / del_Time
-		print 'der_del_roll %f',der_del_roll
+		print 'der_del_roll=========== %f',der_del_roll
 		if abs(der_del_roll) > 0.1:
-			print 'Slip Detected..'
+			print 'sudden roll Detected..'
 		print 'outta peakDet'
 if __name__ == '__main__':
 	try:
